@@ -8,4 +8,10 @@ public class Bytes {
         bb.putInt(i);
         return bb.array();
     }
+
+    public static byte[] floatToBytes(final float f) {
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.putFloat(f);
+        return bb.array();
+    }
 }

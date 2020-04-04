@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
         throttle.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                tcpManagerService.submitMessage(new ThrottleMessage(progress, progress, progress, progress));
+                tcpManagerService.submitMessage(new ThrottleMessage(progress, 0, 0, 0));
             }
 
             @Override

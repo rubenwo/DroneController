@@ -1,11 +1,9 @@
 package com.example.dronecontroller.Services.Conn;
 
-import android.util.Log;
-
 import com.example.dronecontroller.Constants;
 import com.example.dronecontroller.Listeners.TcpErrorListener;
 import com.example.dronecontroller.Listeners.TcpMessageListener;
-import com.example.dronecontroller.Services.Utils.MessageSerializer;
+import com.example.dronecontroller.Services.Conn.Messages.InfoMessage;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -183,7 +181,7 @@ public class TcpManagerService {
             return () -> {
                 while (running) {
                     IMessage message = getMessage();
-
+                    this.messageReceiverListeners.forEach(tcpMessageListener -> tcpMessageListener.onMessageReceived(message));
                 }
             };
         }
@@ -203,21 +201,9 @@ public class TcpManagerService {
          * @return
          */
         private IMessage getMessage() {
-            byte[] prefix = new byte[4];
+            byte[] data = new byte[36];
             int bytesRead = 0;
 
-            while (bytesRead < prefix.length) {
-                try {
-                    bytesRead += fromServer.read(prefix, bytesRead, prefix.length - bytesRead);
-                    if (bytesRead < 0)
-                        return null;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            System.out.println("Got prefix");
-            bytesRead = 0;
-            byte[] data = new byte[byteArrayToInt(prefix)];
             while (bytesRead < data.length) {
                 try {
                     bytesRead += fromServer.read(data, bytesRead, data.length - bytesRead);
@@ -227,9 +213,8 @@ public class TcpManagerService {
                     e.printStackTrace();
                 }
             }
-            System.out.println("Got data");
 
-            return MessageSerializer.deserialize(data, false);
+            return InfoMessage.fromBytes(data);
         }
 
         /**

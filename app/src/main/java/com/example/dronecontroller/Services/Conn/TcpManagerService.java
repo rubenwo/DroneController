@@ -181,7 +181,13 @@ public class TcpManagerService {
             return () -> {
                 while (running) {
                     IMessage message = getMessage();
-                    this.messageReceiverListeners.forEach(tcpMessageListener -> tcpMessageListener.onMessageReceived(message));
+                    this.messageReceiverListeners.forEach(tcpMessageListener -> {
+                        try {
+                            tcpMessageListener.onMessageReceived(message);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    });
                 }
             };
         }

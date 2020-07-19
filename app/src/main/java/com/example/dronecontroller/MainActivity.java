@@ -1,20 +1,28 @@
 package com.example.dronecontroller;
 
 import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.dronecontroller.Services.Conn.Messages.InfoMessage;
-import com.example.dronecontroller.Services.Conn.Messages.ThrottleMessage;
 import com.example.dronecontroller.Services.Conn.TcpManagerService;
 
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
+    private static final int REQUEST_ENABLE_BT = 0;
     private TcpManagerService tcpManagerService;
 
     private SeekBar throttle;
@@ -29,68 +37,65 @@ public class MainActivity extends AppCompatActivity {
     private Button kill_btn;
     private Button preflight_btn;
 
+    private BluetoothAdapter bluetoothAdapter;
     @SuppressLint("DefaultLocale")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        batt_level_tv = findViewById(R.id.batt_level_tv);
-        angle_x_tv = findViewById(R.id.angle_x_tv);
-        angle_y_tv = findViewById(R.id.angle_y_tv);
-        angle_z_tv = findViewById(R.id.angle_z_tv);
-        throttle = findViewById(R.id.seekBar);
+        // Use this check to determine whether BLE is supported on the device. Then
+        // you can selectively disable BLE-related features.
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
+            finish();
+        }
+
+        // Initializes Bluetooth adapter.
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        bluetoothAdapter = bluetoothManager.getAdapter();
+
+        // Ensures Bluetooth is available on the device and it is enabled. If not,
+        // displays a dialog requesting user permission to enable Bluetooth.
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
+        bluetoothAdapter.getBluetoothLeScanner().startScan(new ScanCallback() {
+            @Override
+            public void onScanResult(int callbackType, ScanResult result) {
+                super.onScanResult(callbackType, result);
+                Toast.makeText(getApplicationContext(), result.getDevice().getName(), Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onBatchScanResults(List<ScanResult> results) {
+                super.onBatchScanResults(results);
+            }
+
+            @Override
+            public void onScanFailed(int errorCode) {
+                super.onScanFailed(errorCode);
+            }
+        });
         take_off_btn = findViewById(R.id.take_off_btn);
-        kill_btn = findViewById(R.id.kill_btn);
-        preflight_btn = findViewById(R.id.test_btn);
-
-        tcpManagerService = TcpManagerService.getInstance();
-        tcpManagerService.subscribeToErrorEvents(error -> Log.d("ERROR_TAG", "" + error));
-        tcpManagerService.subscribeToMessageEvents(message -> {
-            Handler mainHandler = new Handler(getApplicationContext().getMainLooper());
-
-            if (message instanceof InfoMessage) {
-                mainHandler.post(() -> {
-                    batt_level_tv.setText(String.format("Battery Level: %d", ((InfoMessage) message).getBattery_level()));
-                    angle_x_tv.setText(String.format("Angle X: %d", ((InfoMessage) message).getAngleX()));
-                    angle_y_tv.setText(String.format("Angle Y: %d", ((InfoMessage) message).getAngleY()));
-                    angle_z_tv.setText(String.format("Angle Z: %d", ((InfoMessage) message).getAngleZ()));
-                });
-                Log.d("MESSAGE_TAG", "message: " + message.toString());
-            }
-        });
-
         take_off_btn.setOnClickListener(v -> {
-            throttle.setProgress(50, true);
-            tcpManagerService.submitMessage(new ThrottleMessage(50, 0, 0, 0));
-        });
-        kill_btn.setOnClickListener(v -> {
-            throttle.setProgress(0, true);
-            tcpManagerService.submitMessage(new ThrottleMessage(0, 0, 0, 0));
-        });
-        preflight_btn.setOnClickListener(v -> {
-            throttle.setProgress(12, true);
-            tcpManagerService.submitMessage(new ThrottleMessage(12, 0, 0, 0));
 
         });
-        throttle.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser)
-                    tcpManagerService.submitMessage(new ThrottleMessage(progress, 0, 0, 0));
-                Log.d("SEEKBAR_TAG", "onProgressChanged: " + fromUser);
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-
     }
+
+    private BluetoothAdapter.LeScanCallback leScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi,
+                                     byte[] scanRecord) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(), device.getName(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            };
 }
